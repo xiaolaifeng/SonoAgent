@@ -4,6 +4,10 @@ import { DeleteButton } from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
+function parseParts(s: string): string[] {
+  try { return JSON.parse(s) as string[]; } catch { return []; }
+}
+
 export default async function ReportsPage() {
   const db = await getDb();
   const reports = await db.listReports();
@@ -27,7 +31,7 @@ export default async function ReportsPage() {
               {reports.map(r => (
                 <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
                   <td className="p-3">{new Date(r.created_at).toLocaleString("zh-CN")}</td>
-                  <td className="p-3">{JSON.parse(r.exam_parts).join("、") || "-"}</td>
+                  <td className="p-3">{parseParts(r.exam_parts).join("、") || "-"}</td>
                   <td className="p-3">{r.mode === "ai" ? "AI生成" : "模板匹配"}</td>
                   <td className="p-3 space-x-2">
                     <Link href={`/reports/${r.id}`} className="text-blue-600">查看</Link>
