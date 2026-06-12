@@ -1,14 +1,14 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 
-// 智谱 GLM 提供 OpenAI 兼容接口，用 createOpenAI 指向智谱 baseURL（AI SDK 官方自定义 provider 方式）
+// 智谱 GLM 的 OpenAI 兼容接口（/api/paas/v4）；用户 token 在该端点同样有效（实测通过）
 const zhipu = createOpenAI({
-  baseURL: "https://open.bigmodel.cn/api/paas/v4",
+  baseURL: process.env.ZHIPU_BASE_URL ?? "https://open.bigmodel.cn/api/paas/v4",
   apiKey: process.env.ZHIPU_API_KEY ?? "",
   name: "zhipu",
 });
 
-export const MODEL_ID = process.env.ZHIPU_MODEL ?? "glm-4-plus";
+export const MODEL_ID = process.env.ZHIPU_MODEL ?? "glm-4.5";
 
 /** 构建 AI 生成模式的 Prompt */
 export function buildPrompt(parts: string[], inputText: string) {
@@ -26,7 +26,7 @@ export function buildPrompt(parts: string[], inputText: string) {
 export function streamReport(parts: string[], inputText: string) {
   const { system, user } = buildPrompt(parts, inputText);
   return streamText({
-    model: zhipu(MODEL_ID),
+    model: zhipu.chat(MODEL_ID),
     system,
     messages: [{ role: "user", content: user }],
   });
