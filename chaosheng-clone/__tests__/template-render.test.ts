@@ -2,20 +2,28 @@ import { describe, it, expect } from "vitest";
 import { renderTemplate } from "../lib/template-render";
 
 describe("renderTemplate", () => {
-  it("单个部位时返回该部位模板并填入口述", () => {
-    const out = renderTemplate(["甲状腺"], "双叶甲状腺大小正常");
-    expect(out).toContain("检查部位：甲状腺");
-    expect(out).toContain("双叶甲状腺大小正常");
+  it("输出报告单抬头与基本信息", () => {
+    const out = renderTemplate(["肝脏"], "肝脏正常");
+    expect(out).toContain("超声医学科报告单");
+    expect(out).toContain("检查部位: 肝脏");
+    expect(out).toContain("送检日期:");
+    expect(out).toContain("图像等级: 乙");
   });
 
-  it("多个部位时拼接各部位报告", () => {
-    const out = renderTemplate(["肝脏", "胆囊"], "肝脏回声均匀");
-    expect(out).toContain("检查部位：肝脏");
-    expect(out).toContain("检查部位：胆囊");
+  it("多个部位时每个器官一段【】", () => {
+    const out = renderTemplate(["肝脏", "胆囊"], "x");
+    expect(out).toContain("【肝脏】");
+    expect(out).toContain("【胆囊】");
   });
 
-  it("未命中模板的部位使用通用模板", () => {
-    const out = renderTemplate(["未知部位" as any], "口述内容");
-    expect(out).toContain("口述内容");
+  it("未命中模板的部位用口述文本", () => {
+    const out = renderTemplate(["未知部位" as any], "口述内容ABC");
+    expect(out).toContain("【未知部位】");
+    expect(out).toContain("口述内容ABC");
+  });
+
+  it("纯文本无 Markdown 符号", () => {
+    const out = renderTemplate(["肝脏"], "x");
+    expect(out).not.toContain("#");
   });
 });
