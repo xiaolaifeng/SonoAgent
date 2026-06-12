@@ -57,11 +57,11 @@ export async function createDb(url = "file:data.db"): Promise<DB> {
     },
     async getReport(id) {
       const res = await client.execute({ sql: `SELECT * FROM reports WHERE id = ?`, args: [id] });
-      return (res.rows[0] ?? undefined) as ReportRow | undefined;
+      return (res.rows[0] ?? undefined) as unknown as ReportRow | undefined;
     },
     async listReports() {
       const res = await client.execute(`SELECT * FROM reports ORDER BY created_at DESC`);
-      return res.rows as ReportRow[];
+      return res.rows as unknown as ReportRow[];
     },
     async deleteReport(id) {
       await client.execute({ sql: `DELETE FROM reports WHERE id = ?`, args: [id] });
