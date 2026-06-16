@@ -5,6 +5,8 @@ import { ReportConfig, type ConfigValue } from "@/components/ReportConfig";
 import { InputPanel } from "@/components/InputPanel";
 import { ReportView } from "@/components/ReportView";
 
+const BP = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export default function Home() {
   const [config, setConfig] = useState<ConfigValue>({ genMode: "ai", parts: [], outputMode: "stream" });
   const [text, setText] = useState("");
@@ -20,7 +22,7 @@ export default function Home() {
     setContent(""); setSaved(false); setGenerating(true);
 
     if (config.genMode === "template") {
-      const res = await fetch("/api/generate", {
+      const res = await fetch(`${BP}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "template", parts: config.parts, text }),
@@ -32,7 +34,7 @@ export default function Home() {
     }
 
     // AI 流式：纯文本流（无需解析协议）。输出方式控制渲染：流式=逐字，非流式=攒齐后一次显示
-    const res = await fetch("/api/generate", {
+    const res = await fetch(`${BP}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "ai", parts: config.parts, text }),
@@ -61,7 +63,7 @@ export default function Home() {
   }
 
   async function handleSave() {
-    const res = await fetch("/api/reports", {
+    const res = await fetch(`${BP}/api/reports`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

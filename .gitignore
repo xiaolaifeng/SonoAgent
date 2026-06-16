@@ -1,0 +1,14 @@
+# --- 仓库级临时/本地产物 ---
+
+# 编辑器配置(个人本地)
+.vscode/
+
+# Playwright MCP 本地测试产物
+.playwright-mcp/
+
+# 对比截图(临时)
+chaosheng-dashboard.png
+target-dashboard.png
+
+# 与本项目无关的游离文档
+引导.md

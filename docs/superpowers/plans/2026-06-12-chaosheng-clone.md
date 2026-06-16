@@ -78,11 +78,11 @@ cd chaosheng-clone
 - [ ] **Step 2: 安装业务依赖**
 
 ```bash
-npm install ai @ai-sdk/openai better-sqlite3 jose
-npm install -D @types/better-sqlite3 vitest
+npm install ai @ai-sdk/openai @libsql/client jose
+npm install -D vitest
 ```
 
-> 用 `@ai-sdk/openai` 的 `createOpenAI` 指向智谱的 OpenAI 兼容端点（而非 `@ai-sdk/zhipu`），因为这是 AI SDK 官方最稳定、文档最全的自定义 provider 方式，跨版本可靠。
+> 用 `@libsql/client` 替代 `better-sqlite3`：后者在 Windows 需 VS C++ build tools 才能编译（实测安装失败），前者零编译、跨平台可靠（异步 API）。`@ai-sdk/openai` 的 `createOpenAI` 指向智谱 OpenAI 兼容端点，是 AI SDK 官方最稳定的自定义 provider 方式。
 
 > 测试用 vitest（轻量、对 Next 友好）。后续在 `package.json` 加 `"test": "vitest run"`。
 
@@ -567,29 +567,29 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createDb, type DB } from "../lib/db";
 
 let db: DB;
-beforeEach(() => {
-  db = createDb(":memory:"); // 内存库，测试隔离
+beforeEach(async () => {
+  db = await createDb(":memory:"); // 内存库，测试隔离
 });
 
 describe("db reports CRUD", () => {
-  it("能创建并按 id 读取报告", () => {
-    const id = db.createReport({ mode: "ai", exam_parts: ["心脏"], input_text: "t", report_content: "c", model: "glm-4-plus", output_mode: "stream" });
-    const got = db.getReport(id);
+  it("能创建并按 id 读取报告", async () => {
+    const id = await db.createReport({ mode: "ai", exam_parts: ["心脏"], input_text: "t", report_content: "c", model: "glm-4-plus", output_mode: "stream" });
+    const got = await db.getReport(id);
     expect(got?.report_content).toBe("c");
     expect(got?.mode).toBe("ai");
   });
 
-  it("能列出与删除报告", () => {
-    const id = db.createReport({ mode: "template", exam_parts: ["肝脏"], input_text: "t", report_content: "c", model: "template", output_mode: "full" });
-    expect(db.listReports()).toHaveLength(1);
-    db.deleteReport(id);
-    expect(db.listReports()).toHaveLength(0);
+  it("能列出与删除报告", async () => {
+    const id = await db.createReport({ mode: "template", exam_parts: ["肝脏"], input_text: "t", report_content: "c", model: "template", output_mode: "full" });
+    expect(await db.listReports()).toHaveLength(1);
+    await db.deleteReport(id);
+    expect(await db.listReports()).toHaveLength(0);
   });
 
-  it("列表按创建时间倒序", () => {
-    db.createReport({ mode: "ai", exam_parts: [], input_text: "a", report_content: "1", model: "m", output_mode: "stream" });
-    db.createReport({ mode: "ai", exam_parts: [], input_text: "b", report_content: "2", model: "m", output_mode: "stream" });
-    const list = db.listReports();
+  it("列表按创建时间倒序", async () => {
+    await db.createReport({ mode: "ai", exam_parts: [], input_text: "a", report_content: "1", model: "m", output_mode: "stream" });
+    await db.createReport({ mode: "ai", exam_parts: [], input_text: "b", report_content: "2", model: "m", output_mode: "stream" });
+    const list = await db.listReports();
     expect(list[0].report_content).toBe("2");
   });
 });
@@ -607,8 +607,7 @@ Expected: FAIL（`createDb` 未定义）
 `lib/db.ts`：
 
 ```ts
-import Database from "better-sqlite3";
-import type { Database as DBType } from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { randomUUID } from "crypto";
 
 export interface ReportRow {
@@ -632,10 +631,10 @@ export interface CreateReportInput {
 }
 
 export interface DB {
-  createReport(input: CreateReportInput): string;
-  getReport(id: string): ReportRow | undefined;
-  listReports(): ReportRow[];
-  deleteReport(id: string): void;
+  createReport(input: CreateReportInput): Promise<string>;
+  getReport(id: string): Promise<ReportRow | undefined>;
+  listReports(): Promise<ReportRow[]>;
+  deleteReport(id: string): Promise<void>;
 }
 
 const SCHEMA = `
@@ -650,38 +649,40 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at INTEGER NOT NULL
 );`;
 
-export function createDb(path = "data.db"): DB {
-  const sqlite: DBType = new Database(path);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.exec(SCHEMA);
+export async function createDb(url = "file:data.db"): Promise<DB> {
+  const client = createClient({ url });
+  await client.execute(SCHEMA);
 
   return {
-    createReport(input) {
+    async createReport(input) {
       const id = randomUUID();
       const created_at = Date.now();
-      sqlite.prepare(
-        `INSERT INTO reports (id, mode, exam_parts, input_text, report_content, model, output_mode, created_at)
-         VALUES (@id, @mode, @exam_parts, @input_text, @report_content, @model, @output_mode, @created_at)`
-      ).run({ id, created_at, ...input, exam_parts: JSON.stringify(input.exam_parts) });
+      await client.execute({
+        sql: `INSERT INTO reports (id, mode, exam_parts, input_text, report_content, model, output_mode, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, input.mode, JSON.stringify(input.exam_parts), input.input_text, input.report_content, input.model, input.output_mode, created_at],
+      });
       return id;
     },
-    getReport(id) {
-      return sqlite.prepare(`SELECT * FROM reports WHERE id = ?`).get(id) as ReportRow | undefined;
+    async getReport(id) {
+      const res = await client.execute({ sql: `SELECT * FROM reports WHERE id = ?`, args: [id] });
+      return (res.rows[0] ?? undefined) as ReportRow | undefined;
     },
-    listReports() {
-      return sqlite.prepare(`SELECT * FROM reports ORDER BY created_at DESC`).all() as ReportRow[];
+    async listReports() {
+      const res = await client.execute(`SELECT * FROM reports ORDER BY created_at DESC`);
+      return res.rows as ReportRow[];
     },
-    deleteReport(id) {
-      sqlite.prepare(`DELETE FROM reports WHERE id = ?`).run(id);
+    async deleteReport(id) {
+      await client.execute({ sql: `DELETE FROM reports WHERE id = ?`, args: [id] });
     },
   };
 }
 
 // 进程级单例（生产路径用文件库）
-let _db: DB | null = null;
-export function getDb(): DB {
-  if (!_db) _db = createDb(process.env.DB_PATH ?? "data.db");
-  return _db;
+let _dbPromise: Promise<DB> | null = null;
+export function getDb(): Promise<DB> {
+  if (!_dbPromise) _dbPromise = createDb(process.env.DB_PATH ?? "file:data.db");
+  return _dbPromise;
 }
 ```
 
@@ -690,9 +691,7 @@ export function getDb(): DB {
 ```bash
 npx vitest run __tests__/db.test.ts
 ```
-Expected: PASS（3 passed）
-
-> 若 `better-sqlite3` 在 Windows 编译失败：`npm uninstall better-sqlite3 && npm install @libsql/client`，并改写 `db.ts` 为 libsql（接口不同，需同步改）。先按 better-sqlite3 推进，遇阻再换。
+Expected: PASS（3 passed）。`@libsql/client` 纯 JS、无编译问题，Windows 友好。
 
 - [ ] **Step 5: Commit**
 
@@ -725,7 +724,7 @@ const zhipu = createOpenAI({
   name: "zhipu",
 });
 
-export const MODEL_ID = process.env.ZHIPU_MODEL ?? "glm-4-plus";
+export const MODEL_ID = process.env.ZHIPU_MODEL ?? "glm-4.5";
 
 /** 构建 AI 生成模式的 Prompt */
 export function buildPrompt(parts: string[], inputText: string) {
@@ -743,7 +742,7 @@ export function buildPrompt(parts: string[], inputText: string) {
 export function streamReport(parts: string[], inputText: string) {
   const { system, user } = buildPrompt(parts, inputText);
   return streamText({
-    model: zhipu(MODEL_ID),
+    model: zhipu.chat(MODEL_ID),
     system,
     messages: [{ role: "user", content: user }],
   });
@@ -776,7 +775,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ```ts
 import { NextRequest } from "next/server";
-import { createTextStreamResponse, toTextStream } from "ai";
 import { streamReport } from "@/lib/ai";
 import { renderTemplate } from "@/lib/template-render";
 
@@ -795,12 +793,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ content });
   }
 
-  // AI 生成模式：纯文本流（AI SDK v5，前端逐字渲染，无需解析协议）
+  // AI 生成模式：纯文本流（AI SDK v6：streamText 结果自带 toTextStreamResponse()，前端逐字渲染）
   try {
     const result = streamReport(parts, text);
-    return createTextStreamResponse({
-      stream: toTextStream({ stream: result.stream }),
-    });
+    return result.toTextStreamResponse();
   } catch (e: any) {
     return Response.json({ error: `生成失败：${e?.message ?? e}` }, { status: 500 });
   }
@@ -975,12 +971,14 @@ import { getDb } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json({ reports: getDb().listReports() });
+  const db = await getDb();
+  return Response.json({ reports: await db.listReports() });
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const id = getDb().createReport({
+  const db = await getDb();
+  const id = await db.createReport({
     mode: body.mode,
     exam_parts: body.exam_parts ?? [],
     input_text: body.input_text ?? "",
@@ -1004,14 +1002,16 @@ export const runtime = "nodejs";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const report = getDb().getReport(id);
+  const db = await getDb();
+  const report = await db.getReport(id);
   if (!report) return Response.json({ error: "not found" }, { status: 404 });
   return Response.json({ report });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  getDb().deleteReport(id);
+  const db = await getDb();
+  await db.deleteReport(id);
   return Response.json({ ok: true });
 }
 ```
@@ -1026,8 +1026,9 @@ import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function ReportsPage() {
-  const reports = getDb().listReports();
+export default async function ReportsPage() {
+  const db = await getDb();
+  const reports = await db.listReports();
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">报告管理</h2>
@@ -1081,7 +1082,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ReportDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const report = getDb().getReport(id);
+  const db = await getDb();
+  const report = await db.getReport(id);
   if (!report) notFound();
 
   return (

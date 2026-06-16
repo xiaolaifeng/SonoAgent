@@ -9,7 +9,7 @@ export function Header() {
                style={{ background: "var(--brand)" }}>超</div>
           <div>
             <h1 className="text-base font-semibold leading-tight">AI语音超声报告生成工作台</h1>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>超声智能体（复刻学习版）</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>超声智能体</p>
           </div>
         </div>
         <div className="flex items-center gap-6 text-sm">

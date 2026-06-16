@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 部署打包产物
+chaosheng-deploy.tar.gz
+/deploy/

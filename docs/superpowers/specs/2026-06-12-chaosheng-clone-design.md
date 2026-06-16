@@ -41,10 +41,10 @@
 | 框架 | Next.js（App Router）+ TypeScript + React | 全栈一体，AI SDK 原生支持流式输出 |
 | 样式 | Tailwind CSS | 快速还原原系统卡片/配色风格 |
 | AI | Vercel AI SDK + 智谱 GLM（`@ai-sdk/zhipu`） | 用户已有 GLM key；OpenAI 兼容接口 |
-| 存储 | SQLite（`better-sqlite3`） | 文件落地、零配置、报告可回看 |
+| 存储 | SQLite（`@libsql/client`） | 文件落地、零编译、跨平台可靠（`better-sqlite3` 在 Windows 需 VS build tools，弃用） |
 | 登录鉴权 | 固定账号 + httpOnly cookie（`jose` 签发 token） | 快速原型够用，无需数据库用户表 |
 
-> **Windows 原生模块风险**：`better-sqlite3` 在 Windows 下偶发原生编译问题。若构建失败，降级为 `@libsql/client`（纯 WASM/HTTP，零编译）或 Node 22+ 内置 `node:sqlite`。届时在实现时确认。
+> **存储方案**：采用 `@libsql/client`（零编译、跨平台、异步 API）。原计划的 `better-sqlite3` 在 Windows 需 VS C++ build tools 才能编译，实测安装失败，故改用 `@libsql/client`。
 
 ---
 

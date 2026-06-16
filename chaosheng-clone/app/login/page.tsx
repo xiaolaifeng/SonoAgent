@@ -2,13 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const BP = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export default function LoginPage() {
   const [u, setU] = useState(""); const [p, setP] = useState(""); const [err, setErr] = useState("");
   const router = useRouter();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/auth", {
+    const res = await fetch(`${BP}/api/auth`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: u, password: p }),
     });
