@@ -41,7 +41,11 @@ CREATE TABLE IF NOT EXISTS reports (
 );`;
 
 export async function createDb(url = "file:data.db"): Promise<DB> {
-  const client = createClient({ url });
+  // For remote libSQL (Turso) set DB_PATH=libsql://... and TURSO_AUTH_TOKEN; ignored for local file:.
+  const client = createClient({
+    url,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
   await client.execute(SCHEMA);
 
   return {
