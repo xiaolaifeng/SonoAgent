@@ -124,8 +124,8 @@ JWT_SECRET=请改成一串足够长的随机字符串
 ZHIPU_API_KEY=你的真实key
 ZHIPU_MODEL=glm-4-plus
 AUTH_USERNAME=doctor1
-AUTH_PASSWORD=***REMOVED***
-JWT_SECRET=***REMOVED***
+AUTH_PASSWORD=改成你的强密码(请勿使用示例值)
+JWT_SECRET=改成一串足够长的随机字符串(请勿使用示例值)
 ```
 
 - [ ] **Step 6: 确认 .gitignore 覆盖敏感/生成物**

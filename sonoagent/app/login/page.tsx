@@ -3,9 +3,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const BP = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+// 演示用预填:仅当设置了 NEXT_PUBLIC_DEMO_* 时生效;生产请留空,避免凭据进入前端 bundle
+const DEMO_USER = process.env.NEXT_PUBLIC_DEMO_USERNAME ?? "";
+const DEMO_PASS = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "";
 
 export default function LoginPage() {
-  const [u, setU] = useState(""); const [p, setP] = useState(""); const [err, setErr] = useState("");
+  const [u, setU] = useState(DEMO_USER); const [p, setP] = useState(DEMO_PASS); const [err, setErr] = useState("");
   const router = useRouter();
 
   async function submit(e: React.FormEvent) {
